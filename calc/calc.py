@@ -2,81 +2,67 @@ import tkinter as tk
 from tkinter import ttk
 import cv2
 from PIL import Image, ImageTk
-from ffpyplayer.player import MediaPlayer
+import pygame
+import splitter  # Automatically splits the video/audio
 
 def main():
+    input_file = splitter.input_file
     root = tk.Tk()
     root.title("Scrollable Number UI")
     root.geometry("1280x720")
 
-    # First slider
+    # First slider (0–100)
     tk.Label(root, text="Number 1:").grid(row=0, column=0, padx=10, pady=10)
     slider1 = tk.Scale(root, from_=0, to=100, orient="horizontal", length=200)
     slider1.grid(row=0, column=1, padx=10, pady=10)
 
-    # Dropdown
+    # Dropdown box
     tk.Label(root, text="Select Symbol:").grid(row=1, column=0, padx=10, pady=10)
     option_var = tk.StringVar(value="Option 1")
     options = ["+", "-", "*", "/"]
     dropdown = ttk.OptionMenu(root, option_var, options[0], *options)
     dropdown.grid(row=1, column=1, padx=10, pady=10)
 
-    # Second slider
+    # Second slider (0–100)
     tk.Label(root, text="Number 2:").grid(row=2, column=0, padx=10, pady=10)
     slider2 = tk.Scale(root, from_=0, to=100, orient="horizontal", length=200)
     slider2.grid(row=2, column=1, padx=10, pady=10)
 
-    # Output label
+    # Output box
     output_label = tk.Label(root, text="Result: ")
     output_label.grid(row=5, column=0, columnspan=2, pady=10)
 
-    # Video display
+    # Video display area
     video_label = tk.Label(root)
     video_label.grid(row=4, column=0, columnspan=2)
 
-    def play_video_with_audio(path, callback):
+    # Function to play video using OpenCV and show in Tkinter
+    def play_video(path, callback):
         cap = cv2.VideoCapture(path)
-        player = MediaPlayer(path)
-        stopped = False
+        fps = cap.get(cv2.CAP_PROP_FPS)
 
         def stream():
-            nonlocal stopped
-            if stopped:
-                return
-
             ret, frame = cap.read()
-            audio_frame, val = player.get_frame()
-
-            # Check if video frames ended
-            video_ended = not ret
-            # Check if audio ended
-            audio_ended = val == 'eof'
-
-            if not video_ended:
+            if ret:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frame = cv2.resize(frame, (640, 360))
                 img = ImageTk.PhotoImage(Image.fromarray(frame))
                 video_label.img = img
                 video_label.config(image=img)
-
-            if video_ended and audio_ended:
-                stopped = True
+                video_label.after(int(1000/fps), stream)
+            else:
                 cap.release()
                 video_label.config(image="")
-                player.close_player()
                 callback()
-            else:
-                video_label.after(30, stream)
 
         stream()
 
     def operate():
-        print(f"Number 1: {slider1.get()}, Option: {option_var.get()}, Number 2: {slider2.get()}")
         num1 = slider1.get()
         num2 = slider2.get()
         symbol = option_var.get()
 
-        # Comedic original logic
+        # Original comedic logic
         if symbol == "+":
             output = num1 + num2
         if symbol == "-":
@@ -91,14 +77,17 @@ def main():
         def show_result():
             output_label.config(text=f"Result: {output}")
 
-        play_video_with_audio("roidcat.mp4", show_result)
+        # Play video-only file and audio simultaneously
+        pygame.mixer.init()
+        pygame.mixer.music.load(input_file+"_audio.mp3")
+        pygame.mixer.music.play()
+        play_video((input_file+"_video.mp4"), show_result)
 
     ttk.Button(root, text="Submit", command=operate).grid(
         row=3, column=0, columnspan=2, pady=10
     )
 
     root.mainloop()
-
 
 if __name__ == "__main__":
     main()
